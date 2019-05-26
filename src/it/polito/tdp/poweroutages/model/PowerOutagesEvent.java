@@ -6,10 +6,10 @@ public class PowerOutagesEvent implements Comparable<PowerOutagesEvent> {
 
 	private LocalDateTime eventBegan;
 	private LocalDateTime eventFinished;
-	private double costumersAffected;
+	private long costumersAffected;
 	private int id;
 
-	public PowerOutagesEvent(LocalDateTime eventBegan, LocalDateTime eventFinished, double costumersAffected, int id) {
+	public PowerOutagesEvent(LocalDateTime eventBegan, LocalDateTime eventFinished, long costumersAffected, int id) {
 		super();
 		this.eventBegan = eventBegan;
 		this.eventFinished = eventFinished;
@@ -25,7 +25,7 @@ public class PowerOutagesEvent implements Comparable<PowerOutagesEvent> {
 		return eventFinished;
 	}
 
-	public double getCostumersAffected() {
+	public long getCostumersAffected() {
 		return costumersAffected;
 	}
 
