@@ -41,12 +41,15 @@ public class Model {
 		maxAffectedPeople = 0;
 
 		// Create new eventListFiltered
+		// seleziona praticamente quelli presi dall'input
 		eventListFiltered = new ArrayList<>();
 		for (PowerOutageEvent event : eventList) {
 			if (event.getNerc().equals(nerc)) {
 				eventListFiltered.add(event);
 			}
 		}
+
+		// Li ordina come ho fatto io per data di inizio
 		eventListFiltered.sort(new Comparator<PowerOutageEvent>() {
 			@Override
 			public int compare(PowerOutageEvent o1, PowerOutageEvent o2) {
@@ -71,7 +74,7 @@ public class Model {
 	}
 
 	private boolean checkMaxYears(List<PowerOutageEvent> partial, int maxNumberOfYears) {
-		if (partial.size() >=2 ) {
+		if (partial.size() >= 2) {
 			int y1 = partial.get(0).getYear();
 			int y2 = partial.get(partial.size() - 1).getYear();
 			if ((y2 - y1 + 1) > maxNumberOfYears) {
@@ -88,7 +91,7 @@ public class Model {
 		}
 		return sum;
 	}
-	
+
 	private boolean checkMaxHoursOfOutage(List<PowerOutageEvent> partial, int maxHoursOfOutage) {
 		int sum = sumOutageHours(partial);
 		if (sum > maxHoursOfOutage) {
@@ -96,7 +99,7 @@ public class Model {
 		}
 		return true;
 	}
-	
+
 	private void recursive(List<PowerOutageEvent> partial, int maxNumberOfYears, int maxHoursOfOutage) {
 
 		// Update the best solution if needed
@@ -112,7 +115,7 @@ public class Model {
 
 				partial.add(event);
 
-				// Costruct only exact solution
+				// Controlla se la soluzione è corretta prima di scendere in ricorsione
 				if (checkMaxYears(partial, maxNumberOfYears) && checkMaxHoursOfOutage(partial, maxHoursOfOutage)) {
 
 					recursive(partial, maxNumberOfYears, maxHoursOfOutage);
@@ -126,7 +129,8 @@ public class Model {
 	public List<Nerc> getNercList() {
 		return this.nercList;
 	}
-	
+
+	// questo serve per verifica al controller
 	public List<Integer> getYearList() {
 		Set<Integer> yearSet = new HashSet<Integer>();
 		for (PowerOutageEvent event : eventList) {
@@ -138,7 +142,7 @@ public class Model {
 			public int compare(Integer o1, Integer o2) {
 				return o2.compareTo(o1);
 			}
-			
+
 		});
 		return yearList;
 	}
