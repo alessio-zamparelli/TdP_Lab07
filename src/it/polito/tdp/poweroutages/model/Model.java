@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 //import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -33,7 +34,7 @@ public class Model {
 		return podao.getNercList();
 	}
 
-	public List<PowerOutagesEvent> worstCaseAnalysis(Nerc nerc, int maxYear, int maxHours) {
+	public Set<PowerOutagesEvent> worstCaseAnalysis(Nerc nerc, int maxYear, int maxHours) {
 
 //		Map<Integer, PowerOutagesEvent> idMapEvents = new HashMap<>();
 
@@ -41,24 +42,39 @@ public class Model {
 //			idMapEvents.put(poe.getId(), poe);
 //		}
 		
-		Map<LocalDateTime, PowerOutagesEvent> idMapEvents = podao.getPowerOutagesEvents(nerc).parallelStream().collect(Collectors.toMap(PowerOutagesEvent::getEventBegan, Function.identity()));
+		Set<PowerOutagesEvent> idMapEvents = podao.getPowerOutagesEventsSorted(nerc);
 //		System.out.println(idMapEvents.values());
-		solution = new Case(false, LocalDateTime.MAX, LocalDateTime.MIN, new HashMap<Integer, PowerOutagesEvent>(), Long.MIN_VALUE);
+		solution = new Case(false, LocalDateTime.MAX, LocalDateTime.MIN, new TreeSet<PowerOutagesEvent>(), Long.MIN_VALUE);
 		
-		magicFunction(new TreeMap<Integer, PowerOutagesEvent>(), maxYear, maxHours, idMapEvents);
+		magicFunction(new TreeSet<PowerOutagesEvent>(), maxYear, maxHours, idMapEvents);
 		
-		return solution.getEventsList();
+		return solution.getEvents();
 	}
 
-	private void magicFunction(Map<Integer, PowerOutagesEvent> partial, int maxYear, int maxHours, Map<LocalDateTime, PowerOutagesEvent> idMapEvents) {
+	private void magicFunction(Set<PowerOutagesEvent> partial, int maxYear, int maxHours, Set<PowerOutagesEvent> events) {
 
-		if(idMapEvents.size()==0)
-			// inizio dei giochi
+		if(events.size()==0)
+			// fine dei giochi
 			return;
-		System.out.format("[DEBUG] partial: %s\n", partial.keySet());
+		
+		
+//		try {
+//			Thread.sleep(1000);
+//		} catch (InterruptedException e1) {
+//			e1.printStackTrace();
+//		}
+		
+		System.out.format("\n\n");
+		
+		System.out.format("[DEBUG] partial: %s\n", partial.stream().map(a->a.getId()).collect(Collectors.toList()));
+		
 		Case partialCase = partialValid(partial, maxYear, maxHours);
-		if(partial.size()!=0)
-			System.out.format("[DEBUG] case   : %s\n", partialCase.getEventsList().parallelStream().map(a->a.getId()).collect(Collectors.toList()));
+		
+		if(solution.getEvents()!=null)
+			System.out.format("[DEBUG] best   : %s persone: %f\n", solution.getEvents().stream().map(a->a.getId()).collect(Collectors.toList()), solution.getMaxPeopleAffected());
+		
+		
+	
 		if(!partialCase.isValid)
 			// controllo sulla validità della soluzione parziale
 			return;
@@ -66,16 +82,20 @@ public class Model {
 		if(partialCase.maxPeopleAffected > solution.maxPeopleAffected) {
 			// questo è il caso peggiore (quindi quello che cerco)
 			solution = partialCase;
+			System.out.format("[DEBUG] NEW BEST, Valid:%b\n", solution.isValid());
+			if(solution.getEvents()!=null)
+				System.out.format("[DEBUG] best   : %s persone: %.0f\n", solution.getEvents().stream().map(a->a.getId()).collect(Collectors.toList()), solution.getMaxPeopleAffected());
 		}
 		
-		for (PowerOutagesEvent e : idMapEvents.values()) {
+		for (PowerOutagesEvent e : events) {
 
-			Map<Integer, PowerOutagesEvent> newPartial = new TreeMap<>(partial);
-			newPartial.put(e.getId(), e);
-			Map<LocalDateTime, PowerOutagesEvent> newIdMapEvents = new TreeMap<>(idMapEvents);
-			newIdMapEvents.remove(e.getEventBegan());
-			magicFunction(newPartial, maxYear, maxHours, newIdMapEvents);
-
+			Set<PowerOutagesEvent> newPartial = new TreeSet<>(partial);
+			newPartial.add(e);
+			Set<PowerOutagesEvent> newEvents = new TreeSet<>(events);
+			newEvents.remove(e);
+			
+			magicFunction(newPartial, maxYear, maxHours, newEvents);
+			
 		}
 
 	}
@@ -88,12 +108,13 @@ public class Model {
 		LocalDateTime yearEnd = LocalDateTime.MIN;
 		long hours = 0;
 		long maxPeopleAffected = 0;
-		boolean isValid = true;
 		
-		if(partial.size()==0)
+		
+		if(partial.size()==0) {
+			System.out.format("[DEBUG] dimensione parz == 0\n");
 			return new Case(true);
-		
-		
+
+		}
 		
 		for(PowerOutagesEvent poe: partial) {
 			// se inizia prima
@@ -107,13 +128,20 @@ public class Model {
 			maxPeopleAffected+=poe.getCostumersAffected();
 		}		
 		// controllo di non aver sforato gli anni
-		if(ChronoUnit.YEARS.between(yearBegan, yearEnd)>maxYear)
-			isValid=false;
+		if(ChronoUnit.YEARS.between(yearBegan, yearEnd)>maxYear) {
+			System.out.format("[DEBUG] NO Anni: %d Max:%d\n", ChronoUnit.YEARS.between(yearBegan, yearEnd), maxYear);
+			return new Case(false);
+		}
 		// controllo di non aver sforato le ore
-		if(hours>maxHours)
-			isValid=false;
+		if(hours>maxHours) {
+			System.out.format("[DEBUG] NO Ore: %d Max:%d\n", hours, maxHours);
+			return new Case(false);
+
+		}
 		
-		return new Case(isValid, yearBegan, yearEnd, partial, maxPeopleAffected);
+		System.out.format("[DEBUG] SI Pers: %d Anni: %d Max: %d Ore: %d Max: %d\n",maxPeopleAffected, ChronoUnit.YEARS.between(yearBegan, yearEnd), maxYear, hours, maxHours);
+
+		return new Case(true, yearBegan, yearEnd, partial, maxPeopleAffected);
 	}
 	
 	private class Case {
@@ -122,9 +150,9 @@ public class Model {
 		private LocalDateTime startDate;
 		private LocalDateTime endDate;
 		private long maxPeopleAffected;
-		private Map<Integer, PowerOutagesEvent> events;
+		private Set<PowerOutagesEvent> events;
 		
-		public Case(boolean isValid, LocalDateTime startDate, LocalDateTime endDate, Map<Integer, PowerOutagesEvent> events, long maxPeopleAffected) {
+		public Case(boolean isValid, LocalDateTime startDate, LocalDateTime endDate, Set<PowerOutagesEvent> events, long maxPeopleAffected) {
 			this.isValid = isValid;
 			this.startDate = startDate;
 			this.endDate = endDate;
@@ -134,11 +162,15 @@ public class Model {
 
 		public Case(boolean isValid) {
 			this.isValid = isValid;
+//			this.startDate = LocalDateTime.MAX;
+//			this.endDate = LocalDateTime.MIN;
+//			this.events = null;
+//			this.maxPeopleAffected=0;
 			
 		}
 
-		public List<PowerOutagesEvent> getEventsList() {
-			return events.values().parallelStream().collect(Collectors.toList());
+		public Set<PowerOutagesEvent> getEvents() {
+			return events;
 		}
 
 		public boolean isValid() {
@@ -151,10 +183,6 @@ public class Model {
 
 		public LocalDateTime getEndDate() {
 			return endDate;
-		}
-
-		public Map<Integer, PowerOutagesEvent> getEvents() {
-			return events;
 		}
 		
 		public double getMaxPeopleAffected() {
@@ -173,9 +201,10 @@ public class Model {
 			this.endDate = endDate;
 		}
 
-		public void setEvents(Map<Integer, PowerOutagesEvent> events) {
-			this.events = events;
-		}
+		
+//		public void setEvents(Map<Integer, PowerOutagesEvent> events) {
+//			this.events = events;
+//		}
 		
 		public void setMaxPeopleAffected(long maxPeopleAffected) {
 			this.maxPeopleAffected = maxPeopleAffected;

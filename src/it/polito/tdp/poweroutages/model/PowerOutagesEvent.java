@@ -2,7 +2,7 @@ package it.polito.tdp.poweroutages.model;
 
 import java.time.LocalDateTime;
 
-public class PowerOutagesEvent {
+public class PowerOutagesEvent implements Comparable<PowerOutagesEvent> {
 
 	private LocalDateTime eventBegan;
 	private LocalDateTime eventFinished;
@@ -37,6 +37,11 @@ public class PowerOutagesEvent {
 	public String toString() {
 		return String.format("PowerOutagesEvent [eventBegan=%s, eventFinished=%s, costumersAffected=%s, id=%d]", eventBegan,
 				eventFinished, costumersAffected, id);
+	}
+
+	@Override
+	public int compareTo(PowerOutagesEvent o) {
+		return this.eventBegan.compareTo(o.eventBegan);
 	}
 
 	
