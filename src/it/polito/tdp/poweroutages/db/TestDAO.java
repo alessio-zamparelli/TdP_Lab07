@@ -10,7 +10,12 @@ public class TestDAO {
 	public static void main(String[] args) {
 		TestDAO t = new TestDAO();
 		PowerOutageDAO dao = new PowerOutageDAO();
-		t.run(dao);
+//		t.run(dao);
+		t.run2(dao);
+	}
+	
+	private void run2(PowerOutageDAO dao) {
+		dao.getAllPowerOutagesEvents().stream().map(a->a.getYear()).distinct().sorted().forEach(a->System.out.println(a));
 	}
 	
 	private void run(PowerOutageDAO dao) {

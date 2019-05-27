@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 //import java.time.temporal.TemporalUnit;
 //import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,13 +24,12 @@ public class Model {
 
 	// per la funzione ricorsiva
 	private List<PowerOutagesEvent> allEvents;
-	private List<PowerOutagesEvent> worstEvents;
-	private long maxAffected;
+
+	private List<PowerOutagesEvent> solution;
+	private int maxAffected;
 
 	public Model() {
 		podao = new PowerOutageDAO();
-		
-
 	}
 
 	public List<Nerc> getNercList() {
@@ -39,62 +39,101 @@ public class Model {
 	public List<PowerOutagesEvent> worstCaseAnalysis(Nerc nerc, int maxYear, int maxHours) {
 
 		allEvents = podao.getPowerOutagesEventsSorted(nerc);
+
 //		allEvents.stream().forEach(a->System.out.format("%5d %s\n", a.getId(), a.getEventBegan()));
-		worstEvents = null;
-		maxAffected = Long.MIN_VALUE;
-		
+		solution = null;
+		maxAffected = 0;
+
+		System.out.println("Valori iniziali:");
+		allEvents.stream().forEach(a -> System.out.println(a.toString()));
+
 		magicFunction(new ArrayList<>(), maxYear, maxHours);
 
-		return worstEvents;
+		return solution;
 	}
 
 	private void magicFunction(List<PowerOutagesEvent> partial, int maxYear, int maxHours) {
 
-		long affected = getAffected(partial);
+//		if (partial != null && partial.size() != 0)
+//			System.out.format("\n\n[DEBUG]    Parti -> %s\n",
+//					partial.stream().map(a -> a.getId()).collect(Collectors.toList()));
+
+		int affected = getAffected(partial);
 		if (affected > maxAffected) {
-			// sono nel caso migliore
+			// sono nel caso peggiore
 			maxAffected = affected;
-			worstEvents = new ArrayList<>(partial);
-			System.out.format("[DEBUG] Trovata soluzione ottima-> n=%10d, %s\n", maxAffected, worstEvents);
+			solution = new ArrayList<>(partial);
+//			System.out.format("[DEBUG] NEW BEST -> %s  MaxAff %d\n",
+//					solution.stream().map(a -> a.getId()).collect(Collectors.toList()), maxAffected);
 
 		}
 
 		for (PowerOutagesEvent poe : allEvents) {
 			if (!partial.contains(poe)) {
+
 				partial.add(poe);
-				if (checkMaxYears(partial, maxYear, maxHours) && checkMaxHours(partial, maxYear, maxHours))
+
+//				System.out.format("Valuto: [%s] da inserire in: %s\n", poe.getId(),
+//						partial.stream().map(a -> a.getId()).collect(Collectors.toList()));
+				if (checkMaxYears(partial, maxYear) && checkMaxHours(partial, maxHours)) {
+//					System.out.format("[DEBUG] newParti -> %s\n",
+//							partial.stream().map(a -> a.getId()).collect(Collectors.toList()));
+//					try {
+//						Thread.sleep(1000);
+//					} catch (InterruptedException e) {}
 					magicFunction(partial, maxYear, maxHours);
+				}
+
 				partial.remove(poe);
 			}
 		}
 
 	}
 
-	private boolean checkMaxHours(List<PowerOutagesEvent> partial, int maxYear, int maxHours) {
-		if (partial.size() < 2)
-			return true;
-		long hours = 0;
+	public int getTotalHours(List<PowerOutagesEvent> partial) {
+		int hours = 0;
 		for (PowerOutagesEvent poe : partial)
-			hours += Duration.between(partial.get(0).getEventBegan(), partial.get(partial.size() - 1).getEventBegan())
-					.toHours();
+			hours += poe.getOutageDuration();
+		return hours;
+	}
 
-		if (hours > maxHours)
+	private boolean checkMaxHours(List<PowerOutagesEvent> partial, int maxHours) {
+
+		int hours = getTotalHours(partial);
+
+		if (hours > maxHours) {
+//			System.out.format("\tNO ORE -> actual: %d max: %d\n", hours, maxHours);
 			return false;
-		else
+		} else {
+//			System.out.format("\tSI ORE -> actual: %d max: %d\n", hours, maxHours);
 			return true;
+		}
 
 	}
 
-	private boolean checkMaxYears(List<PowerOutagesEvent> partial, int maxYear, int maxHours) {
-		long years = ChronoUnit.YEARS.between(partial.get(0).getEventBegan(),
-				partial.get(partial.size() - 1).getEventFinished()) + 1;
-		if (years > maxYear)
+	private boolean checkMaxYears(List<PowerOutagesEvent> partial, int maxYear) {
+		int year1 = partial.get(0).getYear();
+		int year2 = partial.get(partial.size() - 1).getYear();
+
+		if ((year2 - year1 + 1) > maxYear) {
+//			System.out.format("\tNO ANNI-> actual: %d max: %d\n", (year2 - year1 + 1), maxYear);
 			return false;
-		return true;
+		} else {
+//			System.out.format("\tSI ANNI-> actual: %d max: %d\n", (year2 - year1 + 1), maxYear);
+			return true;
+		}
 	}
 
-	private long getAffected(List<PowerOutagesEvent> partial) {
-		return partial.parallelStream().mapToLong(PowerOutagesEvent::getCostumersAffected).sum();
+	public int getAffected(List<PowerOutagesEvent> partial) {
+//		return partial.parallelStream().mapToLong(PowerOutagesEvent::getCostumersAffected).sum();
+		int sum = 0;
+		for (PowerOutagesEvent poe : partial)
+			sum += poe.getCostumersAffected();
+		return sum;
+	}
+
+	public List<Integer> getYearsList() {
+		return podao.getAllPowerOutagesEvents().stream().map(a->a.getYear()).distinct().sorted().collect(Collectors.toList());
 	}
 
 }

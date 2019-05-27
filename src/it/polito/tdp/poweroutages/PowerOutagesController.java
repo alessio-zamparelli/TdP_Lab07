@@ -6,6 +6,7 @@ import java.util.ResourceBundle;
 
 import it.polito.tdp.poweroutages.model.Model;
 import it.polito.tdp.poweroutages.model.Nerc;
+import it.polito.tdp.poweroutages.model.PowerOutagesEvent;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.ComboBox;
@@ -37,6 +38,42 @@ public class PowerOutagesController {
 	@FXML
 	void doRun(ActionEvent event) {
 
+		Nerc selectedNerc = cmbNerc.getSelectionModel().getSelectedItem();
+		if(selectedNerc==null) {
+			txtResult.setText("Selezionare un NERC nel menu a tendina");
+			return;
+		}
+		int maxYears;
+		try {
+			maxYears = Integer.parseInt(txtYears.getText());
+			List<Integer>yearsList = model.getYearsList();
+			if(maxYears==0||maxYears>yearsList.size()+1) {
+				System.out.println("Inserire un numero di anni tra 1 e " + yearsList.size());
+				return;
+			}
+		} catch (NumberFormatException e) {
+			txtResult.setText("Numero di anni non validi");
+			return;
+		}
+		int maxHours;
+		try {
+			maxHours = Integer.parseInt(txtHours.getText());
+		} catch (NumberFormatException e) {
+			txtResult.setText("Numero di ore non valido");
+			return;
+		}
+		
+		List<PowerOutagesEvent> res = model.worstCaseAnalysis(selectedNerc, maxYears, maxHours);
+		
+		txtResult.setText(String.format("Massimo numero di persone: %d\nMassime ore: %d\nMassime citta: %d\n", model.getAffected(res), model.getTotalHours(res), res.size()));
+		for(PowerOutagesEvent poe : res) {
+			txtResult.appendText(poe.toString() + "\n");
+		}
+		
+		
+		
+		
+		
 	}
 
 	@FXML

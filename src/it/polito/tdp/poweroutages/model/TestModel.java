@@ -16,13 +16,15 @@ public class TestModel {
 
 //		System.out.println(nercList);
 
-		List<PowerOutagesEvent> eventList = dao
-				.getPowerOutagesEventsSorted(nercList.stream().filter(a -> a.getId() == 1).findAny().orElse(null));
+//		List<PowerOutagesEvent> eventList = dao
+//				.getPowerOutagesEventsSorted(nercList.stream().filter(a -> a.getId() == 1).findAny().orElse(null));
 //		idMapEvents.stream().forEach(a->System.out.println(a));
-		
+		long start = System.nanoTime();
+		List<PowerOutagesEvent> res = model.worstCaseAnalysis(nercList.stream().filter(a -> a.getId() == 3).findAny().orElse(null), 3, 250);
+		System.out.println(res);
+		long end = System.nanoTime();
 
-		List<PowerOutagesEvent> res = model
-				.worstCaseAnalysis(nercList.stream().filter(a -> a.getId() == 1).findAny().orElse(null), 3, 32);
+//		res = model.worstCaseAnalysis(nercList.stream().filter(a -> a.getId() == 1).findAny().orElse(null), 3, 32);
 		System.out.println("[INFO] Sono alla fine");
 		System.out.println(res);
 	}
